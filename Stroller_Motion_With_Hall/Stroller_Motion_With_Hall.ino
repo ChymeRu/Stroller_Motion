@@ -13,26 +13,29 @@ const int freq = 5000;
 const int ledChannel = 0;
 const int resolution = 8;
 
+int buff = 0;
+
 static const int convert[] = {12, 0, 2, 1, 4, 5, 3, 12};
-//  [6] = 3;
-//  [5] = 5;
-//  [4] = 4;
-//  [3] = 1;
-//  [2] = 2;
-//  [1] = 0;
-//}
 
 int count = 0;
 double rotations = 0.0;
 
-bool prevY = false;
-bool prevG = false;
-bool prevW = false;
+bool activeY = digitalRead(yPin);
+bool activeG = digitalRead(gPin);
+bool activeW = digitalRead(wPin);
+
+float pulseTimeY;
+float pulseTimeG;
+float pulseTimeW; 
 
 //true is forward false is reverse
-bool currentDirection = true;
-
+int currentDirection = 1;
 int prevRotPos = 0;
+float startTime;
+float prevTime = millis(); 
+float AvPulseTime; 
+float PPM;
+float RPM;
 
 void setup() {
   Serial.begin(115200);
@@ -51,7 +54,7 @@ void setup() {
 }
 
 void loop() {
-  int buff = 0;
+  if ((millis() - prevTime) > 100) RPM = 0;
   while (Serial.available() > 0){
     int x = Serial.read() - 48;
 
@@ -68,26 +71,30 @@ void loop() {
     delay(5);
   }
   
-  Serial.print("RotPos: ");
-  Serial.print(-20*prevRotPos);
-  Serial.print(",");
-  Serial.print("Direction: ");
-  Serial.print(200*currentDirection);
-  Serial.print(",");
-  Serial.print("YellowP:");
-  Serial.print(150*prevY);
-  Serial.print(",");
-  Serial.print("GreenP:");
-  Serial.print(150*prevG);
-  Serial.print(",");
-  Serial.print("WhiteP:");
-  Serial.print(150*prevW);
-  Serial.print(",");
-  Serial.print("rotations:");
-  Serial.print(rotations);
+//  Serial.print("RotPos: ");
+//  Serial.print(-20*prevRotPos);
+//  Serial.print(",");
+//  Serial.print("Direction: ");
+//  Serial.print(200*currentDirection);
+//  Serial.print(",");
+//  Serial.print("YellowP:");
+//  Serial.print(150*prevY);
+//  Serial.print(",");
+//  Serial.print("GreenP:");
+//  Serial.print(150*prevG);
+//  Serial.print(",");
+//  Serial.print("WhiteP:");
+//  Serial.print(150*prevW);
+//  Serial.print(",");
+  Serial.print("RPM:");
+  Serial.print(RPM);
   Serial.print(",");
   Serial.print("count:");
   Serial.print(count);
+  Serial.print(",");
+  Serial.print("rotations:");
+  Serial.print((float)count/90);
+  
 //
 //  bool activeY = digitalRead(yPin);
 //  bool activeG = digitalRead(gPin);
@@ -104,81 +111,40 @@ void loop() {
 }
 
 void updateY() {
-//  noInterrupts();
-  bool activeY = digitalRead(yPin);;
-  upSens(activeY, prevG, prevW);
-  prevY = activeY;
-//  interrupts();
+  startTime = millis();  
+  activeY = digitalRead(yPin);
+  activeW = digitalRead(yPin);
+  currentDirection = (activeY == activeW) ? 1 : -1;
+  count = count + (1*currentDirection);
+  pulseTimeY = startTime - prevTime;
+  AvPulseTime = ((pulseTimeY + pulseTimeG + pulseTimeW)/3);
+  PPM = (1000 / AvPulseTime) * 60;
+  RPM = PPM / 90;
+  prevTime = startTime;  
 }
 
 void updateG() {
-//  noInterrupts();
-  bool activeG = digitalRead(gPin);;
-  upSens(prevY, activeG, prevW);
-  prevG = activeG;
-//  interrupts();
+  startTime = millis();  
+  activeY = digitalRead(yPin);
+  activeG = digitalRead(gPin);
+  currentDirection = (activeY == activeG) ? 1 : -1;
+  count = count + (1*currentDirection);
+  pulseTimeG = startTime - prevTime;
+  AvPulseTime = ((pulseTimeY + pulseTimeG + pulseTimeW)/3);
+  PPM = (1000 / AvPulseTime) * 60;
+  RPM = PPM / 90;
+  prevTime = startTime;  
 }
 
 void updateW() {
-//  noInterrupts();
-  bool activeW = digitalRead(wPin);;
-  upSens(prevY, prevG, activeW);
-  prevW = activeW;
-//  interrupts();
-}
-
-void upSens(bool activeY, bool activeG, bool activeW) {
-  int num = (4*((int)activeY)) + (2*((int)activeG)) + ((int)activeW);
-  int rotPos = convert[num];
-//  int rotPos = getRotPos(activeY, activeG, activeW);
-  currentDirection = checkDirection(rotPos);
-  rotations = (double)count/90;
-  prevRotPos = rotPos;
-}
-//int rot = (-2*activeY)
-
-int getRotPos(bool activeY, bool activeG, bool activeW){
-  if(activeY){
-    if(activeG){
-      return 3;
-    }else{
-      if(activeW){
-        return 5;
-      }else{
-        return 4;
-      }
-    }
-  }else{
-    if(activeG){
-      if(activeW){
-        return 1;
-      }else{
-        return 2;
-      }
-    }else{
-      if(activeW){
-        return 0;
-      }else{
-        return 12;
-      }
-    }
-  }
-}
-
-bool checkDirection(int rotPos){
-  int num = rotPos-prevRotPos;
-  num = (num < 0) ? num + 6 : num;
-//  Serial.print("Num: ");
-//  Serial.print(-50*num);
-//  Serial.print(",");
-  
-  if((num == 0) || (num == 3) || (rotPos + prevRotPos >= 12)){
-    return currentDirection;
-  }else if(num<3){
-    count += num;
-    return true;
-  }else {
-    count -= num-4;
-    return false;
-  }
+  startTime = millis();  
+  activeG = digitalRead(gPin);
+  activeW = digitalRead(wPin);
+  currentDirection = (activeG == activeW) ? 1 : -1;
+  count = count + (1*currentDirection);
+  pulseTimeW = startTime - prevTime;
+  AvPulseTime = ((pulseTimeY + pulseTimeG + pulseTimeW)/3);
+  PPM = (1000 / AvPulseTime) * 60;
+  RPM = PPM / 90;
+  prevTime = startTime;  
 }
