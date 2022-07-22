@@ -1,8 +1,6 @@
 // the number of the LED pin
 const int ledPin = 16;
 
-TaskHandle_t Task1;
-
 //hall effect pins
 const int yPin = 25;
 const int gPin = 26;
@@ -13,7 +11,6 @@ const int freq = 5000;
 const int ledChannel = 0;
 const int resolution = 8;
 
-int buff = 0;
 
 static const int convert[] = {12, 0, 2, 1, 4, 5, 3, 12};
 
@@ -24,18 +21,18 @@ bool activeY = digitalRead(yPin);
 bool activeG = digitalRead(gPin);
 bool activeW = digitalRead(wPin);
 
-float pulseTimeY;
-float pulseTimeG;
-float pulseTimeW; 
+long pulseTimeY;
+long pulseTimeG;
+long pulseTimeW; 
 
 //true is forward false is reverse
 int currentDirection = 1;
 int prevRotPos = 0;
-float startTime;
-float prevTime = millis(); 
-float AvPulseTime; 
-float PPM;
-float RPM;
+long startTime;
+long prevTime = micros(); 
+double AvPulseTime; 
+double PPM;
+double RPM;
 
 void setup() {
   Serial.begin(115200);
@@ -54,7 +51,9 @@ void setup() {
 }
 
 void loop() {
-  if ((millis() - prevTime) > 100) RPM = 0;
+  int buff = 0;
+
+  if ((micros() - prevTime) > 100000) RPM = 0;
   while (Serial.available() > 0){
     int x = Serial.read() - 48;
 
@@ -89,62 +88,70 @@ void loop() {
   Serial.print("RPM:");
   Serial.print(RPM);
   Serial.print(",");
+  Serial.print("PPM:");
+  Serial.print(PPM);
+  Serial.print(",");
   Serial.print("count:");
   Serial.print(count);
   Serial.print(",");
   Serial.print("rotations:");
-  Serial.print((float)count/90);
-  
-//
-//  bool activeY = digitalRead(yPin);
-//  bool activeG = digitalRead(gPin);
-//  bool activeW = digitalRead(wPin);
-//  Serial.print("YellowActive:");
-//  Serial.print(1000*activeY);
-//  Serial.print(",");
-//  Serial.print("GreenActive:");
-//  Serial.print(1000*activeG);
-//  Serial.print(",");
-//  Serial.print("WhiteActive:");
-//  Serial.print(1000*activeW);
+  Serial.print((double)count/90.0f);
+  Serial.print(",");
+  Serial.print("YellowTime:");
+  Serial.print(pulseTimeY);
+  Serial.print(",");
+  Serial.print("GreenTime:");
+  Serial.print(pulseTimeY);
+  Serial.print(",");
+  Serial.print("WhiteTime:");
+  Serial.print(pulseTimeY);
+  Serial.print(",");
+  Serial.print("YellowActive:");
+  Serial.print(1000*activeY);
+  Serial.print(",");
+  Serial.print("GreenActive:");
+  Serial.print(1000*activeG);
+  Serial.print(",");
+  Serial.print("WhiteActive:");
+  Serial.print(1000*activeW);
   Serial.println();
 }
 
 void updateY() {
-  startTime = millis();  
+  startTime = micros();  
   activeY = digitalRead(yPin);
-  activeW = digitalRead(yPin);
-  currentDirection = (activeY == activeW) ? 1 : -1;
+  activeW = digitalRead(wPin);
+  currentDirection = (activeY == activeW) ? -1 : 1;
   count = count + (1*currentDirection);
   pulseTimeY = startTime - prevTime;
-  AvPulseTime = ((pulseTimeY + pulseTimeG + pulseTimeW)/3);
-  PPM = (1000 / AvPulseTime) * 60;
-  RPM = PPM / 90;
+  AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
+  PPM = (1000000.0f / AvPulseTime) * 60.0f;
+  RPM = PPM / 90.0f;
   prevTime = startTime;  
 }
 
 void updateG() {
-  startTime = millis();  
+  startTime = micros();  
   activeY = digitalRead(yPin);
   activeG = digitalRead(gPin);
-  currentDirection = (activeY == activeG) ? 1 : -1;
+  currentDirection = (activeY == activeG) ? -1 : 1;
   count = count + (1*currentDirection);
   pulseTimeG = startTime - prevTime;
-  AvPulseTime = ((pulseTimeY + pulseTimeG + pulseTimeW)/3);
-  PPM = (1000 / AvPulseTime) * 60;
-  RPM = PPM / 90;
-  prevTime = startTime;  
+  AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
+  PPM = (1000000.0f / AvPulseTime) * 60.0f;
+  RPM = PPM / 90.0f;
+  prevTime = startTime;   
 }
 
 void updateW() {
-  startTime = millis();  
+  startTime = micros();  
   activeG = digitalRead(gPin);
   activeW = digitalRead(wPin);
-  currentDirection = (activeG == activeW) ? 1 : -1;
+  currentDirection = (activeG == activeW) ? -1 : 1;
   count = count + (1*currentDirection);
   pulseTimeW = startTime - prevTime;
-  AvPulseTime = ((pulseTimeY + pulseTimeG + pulseTimeW)/3);
-  PPM = (1000 / AvPulseTime) * 60;
-  RPM = PPM / 90;
+  AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
+  PPM = (1000000.0f / AvPulseTime) * 60.0f;
+  RPM = PPM / 90.0f;
   prevTime = startTime;  
 }
