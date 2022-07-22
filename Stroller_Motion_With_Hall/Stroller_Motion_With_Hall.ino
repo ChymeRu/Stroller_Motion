@@ -13,7 +13,7 @@ const int freq = 5000;
 const int ledChannel = 0;
 const int resolution = 8;
 
-//const int convert[] = {
+static const int convert[] = {12, 0, 2, 1, 4, 5, 3, 12};
 //  [6] = 3;
 //  [5] = 5;
 //  [4] = 4;
@@ -23,6 +23,7 @@ const int resolution = 8;
 //}
 
 int count = 0;
+double rotations = 0.0;
 
 bool prevY = false;
 bool prevG = false;
@@ -43,46 +44,13 @@ void setup() {
   pinMode(yPin, INPUT);
   pinMode(gPin, INPUT);
   pinMode(wPin, INPUT);
-
-
-
-//  xTaskCreatePinnedToCore(
-//                    Task1code,   /* Task function. */
-//                    "Task1",     /* name of task. */
-//                    10000,       /* Stack size of task */
-//                    NULL,        /* parameter of the task */
-//                    1,           /* priority of the task */
-//                    &Task1,      /* Task handle to keep track of created task */
-//                    0);          /* pin task to core 0 */                  
-//  delay(500);
-}
-
-void Task1code( void * pvParameters ){
-  Serial.print("Task1 running on core ");
-  Serial.println(xPortGetCoreID());
-
-  for(;;){
-    Serial.print("RotPos: ");
-    Serial.print(-200*prevRotPos);
-    Serial.print(",");
-    Serial.print("Direction: ");
-    Serial.print(1000*currentDirection);
-//  Serial.print(",");
-//  Serial.print("YellowActive:");
-//  Serial.print(1500*activeY);
-//  Serial.print(",");
-//  Serial.print("GreenActive:");
-//  Serial.print(1500*activeG);
-//  Serial.print(",");
-//  Serial.print("WhiteActive:");
-//  Serial.print(1500*activeW);
-    Serial.println();
-  } 
+  
+  attachInterrupt(digitalPinToInterrupt(yPin), updateY, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(gPin), updateG, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(wPin), updateW, CHANGE);
 }
 
 void loop() {
-  Serial.print("Task1 running on core ");
-  Serial.println(xPortGetCoreID());
   int buff = 0;
   while (Serial.available() > 0){
     int x = Serial.read() - 48;
@@ -99,39 +67,74 @@ void loop() {
     }
     delay(5);
   }
-
-  bool activeY = digitalRead(yPin);
-  bool activeG = digitalRead(gPin);
-  bool activeW = digitalRead(wPin);
-  
-
-  int rotPos = getRotPos(activeY, activeG, activeW);
-
-  currentDirection = checkDirection(rotPos);
   
   Serial.print("RotPos: ");
-  Serial.print(-200*prevRotPos);
+  Serial.print(-20*prevRotPos);
   Serial.print(",");
   Serial.print("Direction: ");
-  Serial.print(1000*currentDirection);
-//  Serial.print(",");
+  Serial.print(200*currentDirection);
+  Serial.print(",");
+  Serial.print("YellowP:");
+  Serial.print(150*prevY);
+  Serial.print(",");
+  Serial.print("GreenP:");
+  Serial.print(150*prevG);
+  Serial.print(",");
+  Serial.print("WhiteP:");
+  Serial.print(150*prevW);
+  Serial.print(",");
+  Serial.print("rotations:");
+  Serial.print(rotations);
+  Serial.print(",");
+  Serial.print("count:");
+  Serial.print(count);
+//
+//  bool activeY = digitalRead(yPin);
+//  bool activeG = digitalRead(gPin);
+//  bool activeW = digitalRead(wPin);
 //  Serial.print("YellowActive:");
-//  Serial.print(1500*activeY);
+//  Serial.print(1000*activeY);
 //  Serial.print(",");
 //  Serial.print("GreenActive:");
-//  Serial.print(1500*activeG);
+//  Serial.print(1000*activeG);
 //  Serial.print(",");
 //  Serial.print("WhiteActive:");
-//  Serial.print(1500*activeW);
+//  Serial.print(1000*activeW);
   Serial.println();
-  
-  prevY = activeY;
-  prevG = activeG;
-  prevW = activeW;
-  prevRotPos = rotPos;
-//  delay(5);
 }
 
+void updateY() {
+//  noInterrupts();
+  bool activeY = digitalRead(yPin);;
+  upSens(activeY, prevG, prevW);
+  prevY = activeY;
+//  interrupts();
+}
+
+void updateG() {
+//  noInterrupts();
+  bool activeG = digitalRead(gPin);;
+  upSens(prevY, activeG, prevW);
+  prevG = activeG;
+//  interrupts();
+}
+
+void updateW() {
+//  noInterrupts();
+  bool activeW = digitalRead(wPin);;
+  upSens(prevY, prevG, activeW);
+  prevW = activeW;
+//  interrupts();
+}
+
+void upSens(bool activeY, bool activeG, bool activeW) {
+  int num = (4*((int)activeY)) + (2*((int)activeG)) + ((int)activeW);
+  int rotPos = convert[num];
+//  int rotPos = getRotPos(activeY, activeG, activeW);
+  currentDirection = checkDirection(rotPos);
+  rotations = (double)count/90;
+  prevRotPos = rotPos;
+}
 //int rot = (-2*activeY)
 
 int getRotPos(bool activeY, bool activeG, bool activeW){
@@ -168,11 +171,14 @@ bool checkDirection(int rotPos){
 //  Serial.print("Num: ");
 //  Serial.print(-50*num);
 //  Serial.print(",");
-  if(num == 0 || num == 3){
+  
+  if((num == 0) || (num == 3) || (rotPos + prevRotPos >= 12)){
     return currentDirection;
   }else if(num<3){
+    count += num;
     return true;
   }else {
+    count -= num-4;
     return false;
   }
 }
