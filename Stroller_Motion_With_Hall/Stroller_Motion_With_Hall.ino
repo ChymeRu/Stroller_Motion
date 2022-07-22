@@ -7,7 +7,7 @@ const int gPin = 26;
 const int wPin = 27;
 
 // Setting PWM properties
-const int freq = 5000;
+const int freq = 1000;
 const int ledChannel = 0;
 const int resolution = 8;
 
@@ -16,6 +16,8 @@ static const int convert[] = {12, 0, 2, 1, 4, 5, 3, 12};
 
 int count = 0;
 double rotations = 0.0;
+double distPerRotation = 0.492; //meters
+double distance = 0; //meters
 
 bool activeY = digitalRead(yPin);
 bool activeG = digitalRead(gPin);
@@ -95,16 +97,13 @@ void loop() {
   Serial.print(count);
   Serial.print(",");
   Serial.print("rotations:");
-  Serial.print((double)count/90.0f);
+  Serial.print(rotations);
   Serial.print(",");
-  Serial.print("YellowTime:");
-  Serial.print(pulseTimeY);
+  Serial.print("distance:");
+  Serial.print(distance);
   Serial.print(",");
-  Serial.print("GreenTime:");
-  Serial.print(pulseTimeY);
-  Serial.print(",");
-  Serial.print("WhiteTime:");
-  Serial.print(pulseTimeY);
+  Serial.print("AvTime:");
+  Serial.print(AvPulseTime);
   Serial.print(",");
   Serial.print("YellowActive:");
   Serial.print(1000*activeY);
@@ -127,6 +126,8 @@ void updateY() {
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
   PPM = (1000000.0f / AvPulseTime) * 60.0f;
   RPM = PPM / 90.0f;
+  rotations = (double)count/90.0f;
+  distance = rotations * distPerRotation;
   prevTime = startTime;  
 }
 
@@ -140,6 +141,8 @@ void updateG() {
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
   PPM = (1000000.0f / AvPulseTime) * 60.0f;
   RPM = PPM / 90.0f;
+  rotations = (double)count/90.0f;
+  distance = rotations * distPerRotation;
   prevTime = startTime;   
 }
 
@@ -153,5 +156,7 @@ void updateW() {
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
   PPM = (1000000.0f / AvPulseTime) * 60.0f;
   RPM = PPM / 90.0f;
+  rotations = (double)count/90.0f;
+  distance = rotations * distPerRotation;
   prevTime = startTime;  
 }
