@@ -1,5 +1,8 @@
+#include <PID_v1.h>
+
 // the number of the LED pin
-const int ledPin = 16;
+const int motPin = 16;
+const int revPin = 18;
 
 //hall effect pins
 const int yPin = 25;
@@ -41,8 +44,9 @@ void setup() {
   Serial.println("PWM Control");
   ledcSetup(ledChannel, freq, resolution);
 
-  ledcAttachPin(ledPin, ledChannel);
+  ledcAttachPin(motPin, ledChannel);
 
+  pinMode(revPin, OUTPUT);
   pinMode(yPin, INPUT);
   pinMode(gPin, INPUT);
   pinMode(wPin, INPUT);
@@ -50,20 +54,24 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(yPin), updateY, CHANGE);
   attachInterrupt(digitalPinToInterrupt(gPin), updateG, CHANGE);
   attachInterrupt(digitalPinToInterrupt(wPin), updateW, CHANGE);
+  
 }
 
 void loop() {
   int buff = 0;
-
+  bool negative = false;
   if ((micros() - prevTime) > 100000) RPM = 0;
   while (Serial.available() > 0){
     int x = Serial.read() - 48;
-
-    if(x == -35 || x == -38){
-//      Serial.print("You send: ");
-//      Serial.print(buff);
-//      Serial.println();
-      ledcWrite(ledChannel, buff);
+    if(x == -3){
+      negative = true;
+    }else if(x == -35 || x == -38){
+      Serial.print("You send: ");
+      if(negative) Serial.print("-");
+      Serial.print(buff);
+      Serial.println();
+      
+      controlMotor(buff * (-1 * negative));
       buff = 0;
       x = 0;
     }else{
@@ -71,6 +79,9 @@ void loop() {
     }
     delay(5);
   }
+
+  Serial.print("Speed: ");
+  Serial.println(RPM*distPerRotation);
   
 //  Serial.print("RotPos: ");
 //  Serial.print(-20*prevRotPos);
@@ -87,33 +98,39 @@ void loop() {
 //  Serial.print("WhiteP:");
 //  Serial.print(150*prevW);
 //  Serial.print(",");
-  Serial.print("RPM:");
-  Serial.print(RPM);
-  Serial.print(",");
-  Serial.print("PPM:");
-  Serial.print(PPM);
-  Serial.print(",");
-  Serial.print("count:");
-  Serial.print(count);
-  Serial.print(",");
-  Serial.print("rotations:");
-  Serial.print(rotations);
-  Serial.print(",");
-  Serial.print("distance:");
-  Serial.print(distance);
-  Serial.print(",");
-  Serial.print("AvTime:");
-  Serial.print(AvPulseTime);
-  Serial.print(",");
-  Serial.print("YellowActive:");
-  Serial.print(1000*activeY);
-  Serial.print(",");
-  Serial.print("GreenActive:");
-  Serial.print(1000*activeG);
-  Serial.print(",");
-  Serial.print("WhiteActive:");
-  Serial.print(1000*activeW);
-  Serial.println();
+//  Serial.print("RPM:");
+//  Serial.print(RPM);
+//  Serial.print(",");
+//  Serial.print("PPM:");
+//  Serial.print(PPM);
+//  Serial.print(",");
+//  Serial.print("count:");
+//  Serial.print(count);
+//  Serial.print(",");
+//  Serial.print("rotations:");
+//  Serial.print(rotations);
+//  Serial.print(",");
+//  Serial.print("distance:");
+//  Serial.print(distance);
+//  Serial.print(",");
+//  Serial.print("AvTime:");
+//  Serial.print(AvPulseTime);
+//  Serial.print(",");
+//  Serial.print("YellowActive:");
+//  Serial.print(1000*activeY);
+//  Serial.print(",");
+//  Serial.print("GreenActive:");
+//  Serial.print(1000*activeG);
+//  Serial.print(",");
+//  Serial.print("WhiteActive:");
+//  Serial.print(1000*activeW);
+//  Serial.println();
+}
+
+void controlMotor(int speed){
+  bool negative = speed < 0;
+  ledcWrite(ledChannel, abs(speed));
+  digitalWrite(revPin, negative);
 }
 
 void updateY() {
