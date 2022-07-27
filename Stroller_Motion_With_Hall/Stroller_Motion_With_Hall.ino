@@ -17,11 +17,6 @@ const int resolution = 8;
 
 static const int convert[] = {12, 0, 2, 1, 4, 5, 3, 12};
 
-int count = 0;
-double rotations = 0.0;
-double distPerRotation = 0.492; //meters
-double distance = 0; //meters
-
 bool activeY = digitalRead(yPin);
 bool activeG = digitalRead(gPin);
 bool activeW = digitalRead(wPin);
@@ -38,6 +33,18 @@ long prevTime = micros();
 double AvPulseTime; 
 double PPM;
 double RPM;
+int count = 0;
+double rotations = 0.0;
+double distPerRotation = 0.492; //meters
+double distance = 0; //meters
+
+//PID
+double Setpoint, Output;
+double kP = 150;
+double kI = 0;
+double kD = 0;
+
+PID myPID(&distance, &Output, &Setpoint, kP, kI, kD, P_ON_E, DIRECT);
 
 void setup() {
   Serial.begin(115200);
@@ -54,7 +61,13 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(yPin), updateY, CHANGE);
   attachInterrupt(digitalPinToInterrupt(gPin), updateG, CHANGE);
   attachInterrupt(digitalPinToInterrupt(wPin), updateW, CHANGE);
-  
+
+  Setpoint = 0;
+  myPID.SetOutputLimits(-255, 255);
+  myPID.SetMode(AUTOMATIC);
+//  if(abs(distance) > abs(Setpoint)){
+//    Setpoint = -1 * Setpoint;
+//  }
 }
 
 void loop() {
@@ -70,8 +83,7 @@ void loop() {
       if(negative) Serial.print("-");
       Serial.print(buff);
       Serial.println();
-      
-      controlMotor(buff * (-1 * negative));
+      Setpoint = (negative)? buff * -1: buff;
       buff = 0;
       x = 0;
     }else{
@@ -79,52 +91,20 @@ void loop() {
     }
     delay(5);
   }
-
-  Serial.print("Speed: ");
-  Serial.println(RPM*distPerRotation);
-  
-//  Serial.print("RotPos: ");
-//  Serial.print(-20*prevRotPos);
-//  Serial.print(",");
-//  Serial.print("Direction: ");
-//  Serial.print(200*currentDirection);
-//  Serial.print(",");
-//  Serial.print("YellowP:");
-//  Serial.print(150*prevY);
-//  Serial.print(",");
-//  Serial.print("GreenP:");
-//  Serial.print(150*prevG);
-//  Serial.print(",");
-//  Serial.print("WhiteP:");
-//  Serial.print(150*prevW);
-//  Serial.print(",");
-//  Serial.print("RPM:");
-//  Serial.print(RPM);
-//  Serial.print(",");
-//  Serial.print("PPM:");
-//  Serial.print(PPM);
-//  Serial.print(",");
-//  Serial.print("count:");
-//  Serial.print(count);
-//  Serial.print(",");
-//  Serial.print("rotations:");
-//  Serial.print(rotations);
-//  Serial.print(",");
-//  Serial.print("distance:");
-//  Serial.print(distance);
-//  Serial.print(",");
-//  Serial.print("AvTime:");
-//  Serial.print(AvPulseTime);
-//  Serial.print(",");
+  myPID.Compute();
+  controlMotor(Output);
 //  Serial.print("YellowActive:");
 //  Serial.print(1000*activeY);
 //  Serial.print(",");
-//  Serial.print("GreenActive:");
-//  Serial.print(1000*activeG);
-//  Serial.print(",");
-//  Serial.print("WhiteActive:");
-//  Serial.print(1000*activeW);
-//  Serial.println();
+  Serial.print("SetPoint:");
+  Serial.print(Setpoint);
+  Serial.print(",");
+  Serial.print("Output:");
+  Serial.print(Output);
+  Serial.print(",");
+  Serial.print("Distance:");
+  Serial.print(distance);
+  Serial.println();
 }
 
 void controlMotor(int speed){
