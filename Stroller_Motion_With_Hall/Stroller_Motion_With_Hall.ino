@@ -70,8 +70,8 @@ void loop() {
       if(negative) Serial.print("-");
       Serial.print(buff);
       Serial.println();
-      
-      controlMotor(buff * (-1 * negative));
+      buff = (negative) ? buff * -1 : buff;
+      controlMotor(buff);
       buff = 0;
       x = 0;
     }else{
@@ -80,8 +80,8 @@ void loop() {
     delay(5);
   }
 
-  Serial.print("Speed: ");
-  Serial.println(RPM*distPerRotation);
+//  Serial.print("Speed: ");
+//  Serial.println(RPM*distPerRotation);
   
 //  Serial.print("RotPos: ");
 //  Serial.print(-20*prevRotPos);
