@@ -38,11 +38,15 @@ double rotations = 0.0;
 double distPerRotation = 0.492; //meters
 double distance = 0; //meters
 
-//PID
+//PID for distance control
 double Setpoint, Output;
 double kP = 150;
 double kI = 0;
 double kD = 0;
+//PID for speed control
+//double kP = 1;
+//double kI = 0;
+//double kD = 0;
 
 PID myPID(&distance, &Output, &Setpoint, kP, kI, kD, P_ON_E, DIRECT);
 
@@ -108,6 +112,9 @@ void loop() {
 }
 
 void controlMotor(int speed){
+  if(abs(speed) < 15){
+    speed = 0;
+  }
   bool negative = speed < 0;
   ledcWrite(ledChannel, abs(speed));
   digitalWrite(revPin, negative);
@@ -117,7 +124,8 @@ void updateY() {
   startTime = micros();  
   activeY = digitalRead(yPin);
   activeW = digitalRead(wPin);
-  currentDirection = (activeY == activeW) ? -1 : 1;
+//  currentDirection = (activeY == activeW) ? -1 : 1;
+  currentDirection = (activeY == activeW) ? 1 : -1;
   count = count + (1*currentDirection);
   pulseTimeY = startTime - prevTime;
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
@@ -132,7 +140,8 @@ void updateG() {
   startTime = micros();  
   activeY = digitalRead(yPin);
   activeG = digitalRead(gPin);
-  currentDirection = (activeY == activeG) ? -1 : 1;
+//  currentDirection = (activeY == activeG) ? -1 : 1;
+  currentDirection = (activeY == activeG) ? 1 : -1;
   count = count + (1*currentDirection);
   pulseTimeG = startTime - prevTime;
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
@@ -147,7 +156,8 @@ void updateW() {
   startTime = micros();  
   activeG = digitalRead(gPin);
   activeW = digitalRead(wPin);
-  currentDirection = (activeG == activeW) ? -1 : 1;
+//  currentDirection = (activeG == activeW) ? -1 : 1;
+  currentDirection = (activeG == activeW) ? 1 : -1;
   count = count + (1*currentDirection);
   pulseTimeW = startTime - prevTime;
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
