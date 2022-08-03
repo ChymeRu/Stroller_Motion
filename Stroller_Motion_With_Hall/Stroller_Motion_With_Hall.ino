@@ -69,9 +69,7 @@ void setup() {
   Setpoint = 0;
   myPID.SetOutputLimits(-255, 255);
   myPID.SetMode(AUTOMATIC);
-//  if(abs(distance) > abs(Setpoint)){
-//    Setpoint = -1 * Setpoint;
-//  }
+
 }
 
 void loop() {
@@ -109,10 +107,14 @@ void loop() {
   Serial.print("Distance:");
   Serial.print(distance);
   Serial.println();
+
+  if(((Setpoint < 0) && (distance < Setpoint)) || ((Setpoint >= 0) && (distance > Setpoint))){
+    Setpoint = -1 * Setpoint;
+  }
 }
 
 void controlMotor(int speed){
-  if(abs(speed) < 15){
+  if(abs(speed) < 10){
     speed = 0;
   }
   bool negative = speed < 0;
@@ -124,8 +126,8 @@ void updateY() {
   startTime = micros();  
   activeY = digitalRead(yPin);
   activeW = digitalRead(wPin);
-//  currentDirection = (activeY == activeW) ? -1 : 1;
-  currentDirection = (activeY == activeW) ? 1 : -1;
+  currentDirection = (activeY == activeW) ? -1 : 1;
+//  currentDirection = (activeY == activeW) ? 1 : -1;
   count = count + (1*currentDirection);
   pulseTimeY = startTime - prevTime;
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
@@ -140,8 +142,8 @@ void updateG() {
   startTime = micros();  
   activeY = digitalRead(yPin);
   activeG = digitalRead(gPin);
-//  currentDirection = (activeY == activeG) ? -1 : 1;
-  currentDirection = (activeY == activeG) ? 1 : -1;
+  currentDirection = (activeY == activeG) ? -1 : 1;
+//  currentDirection = (activeY == activeG) ? 1 : -1;
   count = count + (1*currentDirection);
   pulseTimeG = startTime - prevTime;
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
@@ -156,8 +158,8 @@ void updateW() {
   startTime = micros();  
   activeG = digitalRead(gPin);
   activeW = digitalRead(wPin);
-//  currentDirection = (activeG == activeW) ? -1 : 1;
-  currentDirection = (activeG == activeW) ? 1 : -1;
+  currentDirection = (activeG == activeW) ? -1 : 1;
+//  currentDirection = (activeG == activeW) ? 1 : -1;
   count = count + (1*currentDirection);
   pulseTimeW = startTime - prevTime;
   AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
