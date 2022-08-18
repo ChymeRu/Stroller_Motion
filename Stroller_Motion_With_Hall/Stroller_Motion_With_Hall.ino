@@ -98,8 +98,8 @@ void loop() {
 //  Serial.print("WhiteP:");
 //  Serial.print(150*prevW);
 //  Serial.print(",");
-//  Serial.print("RPM:");
-//  Serial.print(RPM);
+  Serial.print("RPM:");
+  Serial.print(RPM);
 //  Serial.print(",");
 //  Serial.print("PPM:");
 //  Serial.print(PPM);
@@ -124,7 +124,7 @@ void loop() {
 //  Serial.print(",");
 //  Serial.print("WhiteActive:");
 //  Serial.print(1000*activeW);
-//  Serial.println();
+  Serial.println();
 }
 
 void controlMotor(int speed){
