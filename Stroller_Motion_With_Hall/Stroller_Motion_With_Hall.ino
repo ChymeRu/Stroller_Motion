@@ -1,8 +1,9 @@
 #include <PID_v1.h>
 
 // the number of the LED pin
-const int motPin = 16;
-const int revPin = 18;
+const int motPin = 13;
+const int revPin = 17;
+const int brakePin = 33;
 
 //hall effect pins
 const int yPin = 25;
@@ -35,14 +36,15 @@ double PPM;
 double RPM;
 int count = 0;
 double rotations = 0.0;
-double distPerRotation = 0.492; //meters
-double distance = 0; //meters
+double distPerRotation = 49.2; //cm
+double distance = 0; //cm
 
 //PID for distance control
-double Setpoint, Output;
-double kP = 150;
+double Setpoint, period, Output;
+double kP = 5;
 double kI = 0;
 double kD = 0;
+int lastSpeed = 0;
 //PID for speed control
 //double kP = 1;
 //double kI = 0;
@@ -58,6 +60,7 @@ void setup() {
   ledcAttachPin(motPin, ledChannel);
 
   pinMode(revPin, OUTPUT);
+  pinMode(brakePin, OUTPUT);
   pinMode(yPin, INPUT);
   pinMode(gPin, INPUT);
   pinMode(wPin, INPUT);
@@ -66,10 +69,10 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(gPin), updateG, CHANGE);
   attachInterrupt(digitalPinToInterrupt(wPin), updateW, CHANGE);
 
-  Setpoint = 0;
-  myPID.SetOutputLimits(-255, 255);
+  Setpoint = 20;
+  myPID.SetOutputLimits(-125, 125);
   myPID.SetMode(AUTOMATIC);
-
+//  digitalWrite(brakePin, HIGH);
 }
 
 void loop() {
@@ -86,6 +89,7 @@ void loop() {
       Serial.print(buff);
       Serial.println();
       Setpoint = (negative)? buff * -1: buff;
+//      period = Setpoint;
       buff = 0;
       x = 0;
     }else{
@@ -95,6 +99,7 @@ void loop() {
   }
   myPID.Compute();
   controlMotor(Output);
+  delay(5);
 //  Serial.print("YellowActive:");
 //  Serial.print(1000*activeY);
 //  Serial.print(",");
@@ -117,9 +122,27 @@ void controlMotor(int speed){
   if(abs(speed) < 10){
     speed = 0;
   }
+  if(abs(abs(lastSpeed) - abs(speed)) > 50){
+    
+    if(speed < lastSpeed){
+      speed = lastSpeed - 5;
+    }else{
+      speed = lastSpeed + 5;
+    }
+//  }else{
+//    bool negative = speed < 0;
+//    ledcWrite(ledChannel, abs(speed));
+//    digitalWrite(revPin, negative);
+  }
+  if(abs(speed) < abs(lastSpeed)){
+    digitalWrite(brakePin, HIGH);
+  }else{
+    digitalWrite(brakePin, LOW);
+  }
   bool negative = speed < 0;
   ledcWrite(ledChannel, abs(speed));
   digitalWrite(revPin, negative);
+  lastSpeed = speed;
 }
 
 void updateY() {
