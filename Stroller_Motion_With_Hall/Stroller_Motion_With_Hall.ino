@@ -1,7 +1,9 @@
-// the number of the LED pin
-const int ledPin = 16;
+#include <PID_v1.h>
 
-TaskHandle_t Task1;
+// the number of the LED pin
+const int motPin = 13;
+const int revPin = 17;
+const int brakePin = 33;
 
 //hall effect pins
 const int yPin = 25;
@@ -9,38 +11,56 @@ const int gPin = 26;
 const int wPin = 27;
 
 // Setting PWM properties
-const int freq = 5000;
+const int freq = 1000;
 const int ledChannel = 0;
 const int resolution = 8;
 
+
 static const int convert[] = {12, 0, 2, 1, 4, 5, 3, 12};
-//  [6] = 3;
-//  [5] = 5;
-//  [4] = 4;
-//  [3] = 1;
-//  [2] = 2;
-//  [1] = 0;
-//}
 
-int count = 0;
-double rotations = 0.0;
+bool activeY = digitalRead(yPin);
+bool activeG = digitalRead(gPin);
+bool activeW = digitalRead(wPin);
 
-bool prevY = false;
-bool prevG = false;
-bool prevW = false;
+long pulseTimeY;
+long pulseTimeG;
+long pulseTimeW; 
 
 //true is forward false is reverse
-bool currentDirection = true;
-
+int currentDirection = 1;
 int prevRotPos = 0;
+long startTime;
+long prevTime = micros(); 
+double AvPulseTime; 
+double PPM;
+double RPM;
+int count = 0;
+double rotations = 0.0;
+double distPerRotation = 49.2; //cm
+double distance = 0; //cm
+
+//PID for distance control
+double Setpoint, period, Output;
+double kP = 5;
+double kI = 0;
+double kD = 0;
+int lastSpeed = 0;
+//PID for speed control
+//double kP = 1;
+//double kI = 0;
+//double kD = 0;
+
+PID myPID(&distance, &Output, &Setpoint, kP, kI, kD, P_ON_E, DIRECT);
 
 void setup() {
   Serial.begin(115200);
   Serial.println("PWM Control");
   ledcSetup(ledChannel, freq, resolution);
 
-  ledcAttachPin(ledPin, ledChannel);
+  ledcAttachPin(motPin, ledChannel);
 
+  pinMode(revPin, OUTPUT);
+  pinMode(brakePin, OUTPUT);
   pinMode(yPin, INPUT);
   pinMode(gPin, INPUT);
   pinMode(wPin, INPUT);
@@ -48,18 +68,28 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(yPin), updateY, CHANGE);
   attachInterrupt(digitalPinToInterrupt(gPin), updateG, CHANGE);
   attachInterrupt(digitalPinToInterrupt(wPin), updateW, CHANGE);
+
+  Setpoint = 20;
+  myPID.SetOutputLimits(-125, 125);
+  myPID.SetMode(AUTOMATIC);
+//  digitalWrite(brakePin, HIGH);
 }
 
 void loop() {
   int buff = 0;
+  bool negative = false;
+  if ((micros() - prevTime) > 100000) RPM = 0;
   while (Serial.available() > 0){
     int x = Serial.read() - 48;
-
-    if(x == -35 || x == -38){
-//      Serial.print("You send: ");
-//      Serial.print(buff);
-//      Serial.println();
-      ledcWrite(ledChannel, buff);
+    if(x == -3){
+      negative = true;
+    }else if(x == -35 || x == -38){
+      Serial.print("You send: ");
+      if(negative) Serial.print("-");
+      Serial.print(buff);
+      Serial.println();
+      Setpoint = (negative)? buff * -1: buff;
+//      period = Setpoint;
       buff = 0;
       x = 0;
     }else{
@@ -67,118 +97,98 @@ void loop() {
     }
     delay(5);
   }
-  
-  Serial.print("RotPos: ");
-  Serial.print(-20*prevRotPos);
-  Serial.print(",");
-  Serial.print("Direction: ");
-  Serial.print(200*currentDirection);
-  Serial.print(",");
-  Serial.print("YellowP:");
-  Serial.print(150*prevY);
-  Serial.print(",");
-  Serial.print("GreenP:");
-  Serial.print(150*prevG);
-  Serial.print(",");
-  Serial.print("WhiteP:");
-  Serial.print(150*prevW);
-  Serial.print(",");
-  Serial.print("rotations:");
-  Serial.print(rotations);
-  Serial.print(",");
-  Serial.print("count:");
-  Serial.print(count);
-//
-//  bool activeY = digitalRead(yPin);
-//  bool activeG = digitalRead(gPin);
-//  bool activeW = digitalRead(wPin);
+  myPID.Compute();
+  controlMotor(Output);
+  delay(5);
 //  Serial.print("YellowActive:");
 //  Serial.print(1000*activeY);
 //  Serial.print(",");
-//  Serial.print("GreenActive:");
-//  Serial.print(1000*activeG);
-//  Serial.print(",");
-//  Serial.print("WhiteActive:");
-//  Serial.print(1000*activeW);
+  Serial.print("SetPoint:");
+  Serial.print(Setpoint);
+  Serial.print(",");
+  Serial.print("Output:");
+  Serial.print(Output);
+  Serial.print(",");
+  Serial.print("Distance:");
+  Serial.print(distance);
   Serial.println();
+
+  if(((Setpoint < 0) && (distance < Setpoint)) || ((Setpoint >= 0) && (distance > Setpoint))){
+    Setpoint = -1 * Setpoint;
+  }
+}
+
+void controlMotor(int speed){
+  if(abs(speed) < 10){
+    speed = 0;
+  }
+  if(abs(abs(lastSpeed) - abs(speed)) > 50){
+    
+    if(speed < lastSpeed){
+      speed = lastSpeed - 5;
+    }else{
+      speed = lastSpeed + 5;
+    }
+//  }else{
+//    bool negative = speed < 0;
+//    ledcWrite(ledChannel, abs(speed));
+//    digitalWrite(revPin, negative);
+  }
+  if(abs(speed) < abs(lastSpeed)){
+    digitalWrite(brakePin, HIGH);
+  }else{
+    digitalWrite(brakePin, LOW);
+  }
+  bool negative = speed < 0;
+  ledcWrite(ledChannel, abs(speed));
+  digitalWrite(revPin, negative);
+  lastSpeed = speed;
 }
 
 void updateY() {
-//  noInterrupts();
-  bool activeY = digitalRead(yPin);;
-  upSens(activeY, prevG, prevW);
-  prevY = activeY;
-//  interrupts();
+  startTime = micros();  
+  activeY = digitalRead(yPin);
+  activeW = digitalRead(wPin);
+  currentDirection = (activeY == activeW) ? -1 : 1;
+//  currentDirection = (activeY == activeW) ? 1 : -1;
+  count = count + (1*currentDirection);
+  pulseTimeY = startTime - prevTime;
+  AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
+  PPM = (1000000.0f / AvPulseTime) * 60.0f;
+  RPM = PPM / 90.0f;
+  rotations = (double)count/90.0f;
+  distance = rotations * distPerRotation;
+  prevTime = startTime;  
 }
 
 void updateG() {
-//  noInterrupts();
-  bool activeG = digitalRead(gPin);;
-  upSens(prevY, activeG, prevW);
-  prevG = activeG;
-//  interrupts();
+  startTime = micros();  
+  activeY = digitalRead(yPin);
+  activeG = digitalRead(gPin);
+  currentDirection = (activeY == activeG) ? -1 : 1;
+//  currentDirection = (activeY == activeG) ? 1 : -1;
+  count = count + (1*currentDirection);
+  pulseTimeG = startTime - prevTime;
+  AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
+  PPM = (1000000.0f / AvPulseTime) * 60.0f;
+  RPM = PPM / 90.0f;
+  rotations = (double)count/90.0f;
+  distance = rotations * distPerRotation;
+  prevTime = startTime;   
 }
 
 void updateW() {
-//  noInterrupts();
-  bool activeW = digitalRead(wPin);;
-  upSens(prevY, prevG, activeW);
-  prevW = activeW;
-//  interrupts();
-}
-
-void upSens(bool activeY, bool activeG, bool activeW) {
-  int num = (4*((int)activeY)) + (2*((int)activeG)) + ((int)activeW);
-  int rotPos = convert[num];
-//  int rotPos = getRotPos(activeY, activeG, activeW);
-  currentDirection = checkDirection(rotPos);
-  rotations = (double)count/90;
-  prevRotPos = rotPos;
-}
-//int rot = (-2*activeY)
-
-int getRotPos(bool activeY, bool activeG, bool activeW){
-  if(activeY){
-    if(activeG){
-      return 3;
-    }else{
-      if(activeW){
-        return 5;
-      }else{
-        return 4;
-      }
-    }
-  }else{
-    if(activeG){
-      if(activeW){
-        return 1;
-      }else{
-        return 2;
-      }
-    }else{
-      if(activeW){
-        return 0;
-      }else{
-        return 12;
-      }
-    }
-  }
-}
-
-bool checkDirection(int rotPos){
-  int num = rotPos-prevRotPos;
-  num = (num < 0) ? num + 6 : num;
-//  Serial.print("Num: ");
-//  Serial.print(-50*num);
-//  Serial.print(",");
-  
-  if((num == 0) || (num == 3) || (rotPos + prevRotPos >= 12)){
-    return currentDirection;
-  }else if(num<3){
-    count += num;
-    return true;
-  }else {
-    count -= num-4;
-    return false;
-  }
+  startTime = micros();  
+  activeG = digitalRead(gPin);
+  activeW = digitalRead(wPin);
+  currentDirection = (activeG == activeW) ? -1 : 1;
+//  currentDirection = (activeG == activeW) ? 1 : -1;
+  count = count + (1*currentDirection);
+  pulseTimeW = startTime - prevTime;
+  AvPulseTime = ((double)(pulseTimeY + pulseTimeG + pulseTimeW))/3.0f;
+  PPM = (1000000.0f / AvPulseTime) * 60.0f;
+  RPM = PPM / 90.0f;
+  rotations = (double)count/90.0f;
+  distance = rotations * distPerRotation;
+  prevTime = startTime;  
 }
